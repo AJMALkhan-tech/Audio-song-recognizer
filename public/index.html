@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo — song recognizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#0B0E14;
+    --panel:#12161F;
+    --violet:#7C5CFC;
+    --violet-dim:#4B3C99;
+    --teal:#28E0B9;
+    --text:#EDEBF5;
+    --text-dim:#8A899C;
+    --line-strong:#242A38;
+    --danger:#F0997B;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:48px 20px 80px;
+  }
+
+  .app{width:100%; max-width:460px;}
+
+  header{text-align:center; margin-bottom:36px;}
+  header .mark{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:28px;
+    letter-spacing:0.02em;
+    margin:0;
+  }
+  header .mark span{color:var(--violet);}
+  header p{color:var(--text-dim); font-size:13px; margin:6px 0 0; letter-spacing:0.03em;}
+
+  .stage{display:flex; flex-direction:column; align-items:center; padding:40px 0 12px;}
+
+  .ring-wrap{
+    position:relative;
+    width:220px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  svg#ringSvg{position:absolute; inset:0; width:100%; height:100%;}
+
+  #listenBtn{
+    width:120px;
+    height:120px;
+    border-radius:50%;
+    border:none;
+    background:var(--violet);
+    color:#0B0E14;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    z-index:2;
+    transition:transform 0.15s ease, background 0.2s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    line-height:1.3;
+  }
+  #listenBtn:hover{transform:scale(1.04);}
+  #listenBtn:active{transform:scale(0.97);}
+  #listenBtn.listening{background:var(--teal);}
+  #listenBtn:disabled{background:#3A3D4A; color:var(--text-dim); cursor:default; transform:none;}
+
+  .status{
+    margin-top:22px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:0.04em;
+    min-height:16px;
+    text-align:center;
+  }
+
+  .result-card{
+    display:none;
+    margin-top:28px;
+    background:var(--panel);
+    border:0.5px solid var(--line-strong);
+    border-radius:14px;
+    padding:20px;
+    animation:slideUp 0.35s ease;
+  }
+  .result-card.show{display:flex; gap:16px;}
+  @keyframes slideUp{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  .art{width:76px; height:76px; border-radius:8px; background:var(--violet-dim); flex-shrink:0; object-fit:cover;}
+
+  .track-info{flex:1; min-width:0;}
+  .track-info .title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:500;
+    font-size:17px;
+    margin:0 0 2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .track-info .artist{
+    color:var(--text-dim);
+    font-size:14px;
+    margin:0 0 10px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .track-info .meta{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); margin:0;}
+  .track-info a{
+    display:inline-block;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--teal);
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+  }
+  .track-info a:hover{border-color:var(--teal);}
+
+  .error-card{
+    display:none;
+    margin-top:28px;
+    background:rgba(240,153,123,0.08);
+    border:0.5px solid rgba(240,153,123,0.35);
+    border-radius:14px;
+    padding:16px 18px;
+    font-size:13px;
+    color:var(--danger);
+    line-height:1.5;
+  }
+  .error-card.show{display:block;}
+
+  .history{margin-top:36px;}
+  .history h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    color:var(--text-dim);
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    margin:0 0 12px;
+  }
+  .history-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 0;
+    border-top:0.5px solid var(--line-strong);
+  }
+  .history-item .art{width:36px; height:36px; border-radius:6px;}
+  .history-item .title{font-size:13px; margin:0; font-weight:500;}
+  .history-item .artist{font-size:12px; margin:0; color:var(--text-dim);}
+  .history-empty{color:var(--text-dim); font-size:13px; padding:10px 0; border-top:0.5px solid var(--line-strong);}
+
+  .server-note{
+    margin-top:40px;
+    font-size:12px;
+    color:var(--text-dim);
+    text-align:center;
+    line-height:1.6;
+  }
+  .server-note.bad{color:var(--danger);}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <p class="mark">e<span>ch</span>o</p>
+    <p>listen to figure out what's playing</p>
+  </header>
+
+  <div class="stage">
+    <div class="ring-wrap">
+      <svg id="ringSvg" viewBox="0 0 220 220">
+        <circle cx="110" cy="110" r="95" fill="none" stroke="#242A38" stroke-width="1"></circle>
+        <circle id="pulseRing" cx="110" cy="110" r="95" fill="none" stroke="#7C5CFC" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 10" opacity="0.5"></circle>
+      </svg>
+      <button id="listenBtn">listen</button>
+    </div>
+    <p class="status" id="statusText"></p>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <img class="art" id="resultArt" src="" alt="">
+    <div class="track-info">
+      <p class="title" id="resultTitle"></p>
+      <p class="artist" id="resultArtist"></p>
+      <p class="meta" id="resultMeta"></p>
+      <a id="resultLink" href="#" target="_blank" rel="noopener">open source ↗</a>
+    </div>
+  </div>
+
+  <div class="error-card" id="errorCard"></div>
+
+  <div class="history">
+    <h2>recent</h2>
+    <div id="historyList">
+      <p class="history-empty">nothing recognized yet</p>
+    </div>
+  </div>
+
+  <p class="server-note" id="serverNote">checking server…</p>
+</div>
+
+<script>
+  const listenBtn = document.getElementById('listenBtn');
+  const statusText = document.getElementById('statusText');
+  const pulseRing = document.getElementById('pulseRing');
+  const resultCard = document.getElementById('resultCard');
+  const errorCard = document.getElementById('errorCard');
+  const historyList = document.getElementById('historyList');
+  const serverNote = document.getElementById('serverNote');
+
+  let history = [];
+  let audioCtx, analyser, micStream, mediaRecorder, animId;
+
+  async function checkServer(){
+    try{
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if(data.configured){
+        serverNote.textContent = 'server connected';
+        serverNote.classList.remove('bad');
+      } else {
+        serverNote.textContent = 'server is running but has no AudD token — add AUDD_API_TOKEN to .env and restart';
+        serverNote.classList.add('bad');
+      }
+    }catch(err){
+      serverNote.textContent = 'could not reach the backend — is it running?';
+      serverNote.classList.add('bad');
+    }
+  }
+  checkServer();
+
+  function setStatus(msg){ statusText.textContent = msg; }
+  function showError(msg){ errorCard.textContent = msg; errorCard.classList.add('show'); }
+  function hideError(){ errorCard.classList.remove('show'); }
+
+  function animateRing(level){
+    const scale = 0.94 + Math.min(level / 140, 1) * 0.12;
+    pulseRing.setAttribute('r', 95 * scale);
+    pulseRing.setAttribute('opacity', 0.35 + Math.min(level / 140, 1) * 0.6);
+  }
+  function resetRing(){
+    pulseRing.setAttribute('r', 95);
+    pulseRing.setAttribute('opacity', 0.5);
+  }
+
+  function loop(){
+    if(!analyser) return;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a,b)=>a+b,0) / data.length;
+    animateRing(avg);
+    animId = requestAnimationFrame(loop);
+  }
+
+  async function startListening(){
+    hideError();
+    resultCard.classList.remove('show');
+
+    try{
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }catch(err){
+      showError('Microphone access was blocked. Allow microphone permission for this page and try again.');
+      return;
+    }
+
+    listenBtn.classList.add('listening');
+    listenBtn.disabled = true;
+    listenBtn.textContent = 'listening…';
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    loop();
+
+    const chunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+    mediaRecorder = mimeType ? new MediaRecorder(micStream, { mimeType }) : new MediaRecorder(micStream);
+
+    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      cancelAnimationFrame(animId);
+      resetRing();
+      micStream.getTracks().forEach(t => t.stop());
+      audioCtx.close();
+
+      const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      await recognize(blob);
+    };
+
+    let secondsLeft = 8;
+    setStatus(`recording · ${secondsLeft}s`);
+    mediaRecorder.start();
+    const countdown = setInterval(() => {
+      secondsLeft -= 1;
+      if(secondsLeft > 0){
+        setStatus(`recording · ${secondsLeft}s`);
+      } else {
+        clearInterval(countdown);
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    }, 8000);
+  }
+
+  async function recognize(blob){
+    setStatus('matching against catalog…');
+    const form = new FormData();
+    form.append('audio', blob, 'clip.webm');
+
+    try{
+      const res = await fetch('/api/recognize', { method: 'POST', body: form });
+      const data = await res.json();
+
+      if(!res.ok){
+        throw new Error(data.error || 'Recognition request failed.');
+      }
+
+      if(!data.match){
+        setStatus('');
+        showError("Couldn't find a match. Try getting closer to the speaker or waiting for a clearer part of the song.");
+        resetListenBtn();
+        return;
+      }
+
+      showResult(data.match);
+      setStatus('');
+    }catch(err){
+      setStatus('');
+      showError('Something went wrong: ' + err.message);
+    }
+    resetListenBtn();
+  }
+
+  function resetListenBtn(){
+    listenBtn.classList.remove('listening');
+    listenBtn.disabled = false;
+    listenBtn.textContent = 'listen';
+  }
+
+  function showResult(track){
+    document.getElementById('resultArt').src = track.art || '';
+    document.getElementById('resultTitle').textContent = track.title;
+    document.getElementById('resultArtist').textContent = track.artist;
+    document.getElementById('resultMeta').textContent = [track.album, track.release].filter(Boolean).join(' · ');
+    document.getElementById('resultLink').href = track.link || '#';
+    resultCard.classList.add('show');
+
+    history.unshift(track);
+    history = history.slice(0, 5);
+    renderHistory();
+  }
+
+  function renderHistory(){
+    if(history.length === 0){
+      historyList.innerHTML = '<p class="history-empty">nothing recognized yet</p>';
+      return;
+    }
+    historyList.innerHTML = history.map(t => `
+      <div class="history-item">
+        <img class="art" src="${t.art || ''}" alt="">
+        <div>
+          <p class="title">${t.title}</p>
+          <p class="artist">${t.artist}</p>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  listenBtn.addEventListener('click', startListening);
+</script>
+
+</body>
+</html>
