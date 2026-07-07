@@ -21,7 +21,7 @@ link. Backend keeps your API key private; frontend just handles the mic and UI.
    ```
    cp .env.example .env
    ```
-   Then edit `.env` and set `AUDD_API_TOKEN=your_token_here`.
+   Then edit `.env` and set `AUDD_API_TOKEN= Add your Own`.
 
 4. Start the server:
    ```
